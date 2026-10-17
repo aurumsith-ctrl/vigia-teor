@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>Vigia do Thor</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>🐶 Vigia do Thor</h1>
+    <span id="status-modelo" class="pill">Carregando IA…</span>
+  </header>
+
+  <div class="camera">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="camera-aviso" class="camera-aviso">
+      <p>Câmera desligada</p>
+      <button id="btn-camera" class="btn primario">📷 Ligar câmera</button>
+      <p id="camera-erro" class="erro" hidden></p>
+    </div>
+    <div class="medidor" title="Chance de estar lambendo">
+      <div id="medidor-barra" class="medidor-barra"></div>
+      <div id="medidor-limiar" class="medidor-limiar"></div>
+    </div>
+  </div>
+
+  <nav class="abas">
+    <button data-aba="vigiar" class="ativa">Vigiar</button>
+    <button data-aba="treinar">Treinar</button>
+    <button data-aba="voz">Voz</button>
+    <button data-aba="historico">Histórico</button>
+    <button data-aba="ajustes">Ajustes</button>
+  </nav>
+
+  <main>
+    <!-- VIGIAR -->
+    <section id="aba-vigiar" class="aba ativa">
+      <div class="card estado">
+        <div id="estado-texto" class="estado-texto">Parado</div>
+        <div id="estado-detalhe" class="sub">Treine o app e grave sua voz antes da primeira noite.</div>
+      </div>
+
+      <div class="numeros">
+        <div><strong id="num-episodios">0</strong><span>lambidas</span></div>
+        <div><strong id="num-alarmes">0</strong><span>alarmes</span></div>
+        <div><strong id="num-tempo">0s</strong><span>lambendo</span></div>
+      </div>
+
+      <label class="check"><input type="checkbox" id="modo-teste"> Modo teste (detecta, mas não toca som)</label>
+
+      <button id="btn-iniciar" class="btn grande primario">▶️ Iniciar vigília</button>
+      <button id="btn-parar" class="btn grande perigo" hidden>⏹ Parar vigília</button>
+      <button id="btn-noite" class="btn" disabled>🌙 Modo noite (tela preta)</button>
+      <button id="btn-testar-alarme" class="btn">🔊 Testar alarme</button>
+      <p id="aviso-vigiar" class="aviso" hidden></p>
+
+      <details class="card">
+        <summary>Checklist antes de dormir</summary>
+        <ul class="dicas">
+          <li>Celular <b>na tomada</b> e apontado para a cama do Thor.</li>
+          <li>Uma <b>luz fraca</b> acesa (a câmera precisa enxergar).</li>
+          <li>Volume alto e <b>sem modo silencioso / não perturbe</b>.</li>
+          <li>iPhone: Ajustes → Tela e Brilho → Bloqueio automático → <b>Nunca</b>.</li>
+          <li>Deixe <b>este app aberto na tela</b> (pode usar o modo noite).</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- TREINAR -->
+    <section id="aba-treinar" class="aba">
+      <div class="card">
+        <h2>Ensine o app a reconhecer o Thor</h2>
+        <ol class="dicas">
+          <li>Deixe o celular <b>na posição em que ele vai ficar à noite</b>, enquadrando o Thor e a pata machucada.</li>
+          <li>Quando ele estiver lambendo, toque em <b>“Gravar: lambendo”</b> (grava por 10 s). Repita em momentos diferentes.</li>
+          <li>Grave <b>“normal”</b> com ele dormindo, deitado, com a cabeça apoiada na pata, se coçando, se mexendo e até com a cama vazia.</li>
+          <li>Mínimo de <b>20 exemplos de cada</b>; o ideal é <b>150 ou mais</b> de cada, também com a luz da noite.</li>
+          <li>Ative a “detecção ao vivo” para conferir se a barra sobe só quando ele lambe.</li>
+        </ol>
+      </div>
+
+      <div class="treino">
+        <div class="classe">
+          <button id="btn-gravar-lambendo" class="btn grande alerta" data-classe="lambendo">👅 Gravar: lambendo</button>
+          <div class="classe-info"><span><b id="cont-lambendo">0</b> exemplos</span>
+            <button class="link" data-limpar="lambendo">limpar</button></div>
+        </div>
+        <div class="classe">
+          <button id="btn-gravar-normal" class="btn grande" data-classe="normal">😴 Gravar: normal</button>
+          <div class="classe-info"><span><b id="cont-normal">0</b> exemplos</span>
+            <button class="link" data-limpar="normal">limpar</button></div>
+        </div>
+      </div>
+
+      <p id="status-treino" class="sub"></p>
+      <label class="check"><input type="checkbox" id="testar-deteccao"> Mostrar detecção ao vivo na barra</label>
+    </section>
+
+    <!-- VOZ -->
+    <section id="aba-voz" class="aba">
+      <div class="card">
+        <h2>Sua voz no alarme</h2>
+        <p class="sub">Grave você chamando, do jeito que ele obedece. Exemplo: <b>“Thor! Não!”</b> (até 5 segundos).</p>
+      </div>
+      <button id="btn-gravar-voz" class="btn grande primario">🎙️ Gravar minha voz</button>
+      <button id="btn-ouvir-voz" class="btn">▶️ Ouvir</button>
+      <button id="btn-apagar-voz" class="btn" disabled>🗑 Apagar gravação</button>
+      <p id="status-voz" class="sub">Sem gravação: o alarme usa bipes + voz sintetizada.</p>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section id="aba-historico" class="aba">
+      <div id="lista-historico" class="lista"></div>
+      <button id="btn-exportar" class="btn primario">📤 Exportar histórico (JSON)</button>
+      <button id="btn-apagar-historico" class="btn perigo-leve">Apagar histórico</button>
+      <p class="sub">O arquivo exportado pode ser analisado no Mac com <code>python -m vigia_thor.relatorio</code>.</p>
+    </section>
+
+    <!-- AJUSTES -->
+    <section id="aba-ajustes" class="aba">
+      <div id="campos-ajustes"></div>
+      <div class="campo">
+        <label for="aj-camera">Câmera</label>
+        <select id="aj-camera">
+          <option value="environment">Traseira (recomendado)</option>
+          <option value="user">Frontal</option>
+        </select>
+      </div>
+      <button id="btn-restaurar-ajustes" class="btn">Restaurar padrões</button>
+    </section>
+  </main>
+
+  <div id="modo-noite" class="modo-noite" hidden>
+    <p id="noite-texto">Vigiando…</p>
+    <small>Toque duas vezes para sair</small>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

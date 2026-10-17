@@ -1,0 +1,242 @@
+:root {
+  --fundo: #0f1115;
+  --card: #1a1d24;
+  --borda: #2a2f3a;
+  --texto: #e8eaed;
+  --sub: #9aa0a6;
+  --primario: #3b82f6;
+  --alerta: #f59e0b;
+  --perigo: #ef4444;
+  --ok: #22c55e;
+  --raio: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top) 12px calc(24px + env(safe-area-inset-bottom));
+}
+
+h1 { font-size: 1.25rem; margin: 0; }
+h2 { font-size: 1.05rem; margin: 0 0 8px; }
+
+.topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.pill {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--borda);
+  color: var(--sub);
+}
+.pill.ok { color: var(--ok); border-color: var(--ok); }
+.pill.aviso { color: var(--alerta); border-color: var(--alerta); }
+.pill.erro { color: var(--perigo); border-color: var(--perigo); }
+
+/* Câmera */
+.camera {
+  position: relative;
+  border-radius: var(--raio);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4 / 3;
+  max-height: 38vh;
+  width: 100%;
+}
+.camera video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.camera-aviso {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #000;
+  text-align: center;
+  padding: 16px;
+}
+.camera-aviso[hidden] { display: none; }
+
+.medidor {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.medidor-barra {
+  height: 100%;
+  width: 0;
+  background: var(--ok);
+  transition: width 0.2s, background 0.2s;
+}
+.medidor-barra.alto { background: var(--perigo); }
+.medidor-limiar {
+  position: absolute;
+  top: -4px; bottom: 0;
+  width: 2px;
+  background: #fff;
+  left: 75%;
+}
+
+/* Abas */
+.abas {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0;
+  overflow-x: auto;
+}
+.abas button {
+  flex: 1;
+  padding: 10px 6px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--sub);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.abas button.ativa { color: var(--texto); border-color: var(--primario); background: #1e2a44; }
+
+.aba { display: none; flex-direction: column; gap: 10px; }
+.aba.ativa { display: flex; }
+
+/* Componentes */
+.card {
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 14px;
+}
+details.card summary { cursor: pointer; font-weight: 600; }
+
+.sub { color: var(--sub); font-size: 0.9rem; margin: 0; }
+.erro { color: var(--perigo); font-size: 0.9rem; margin: 0; }
+.aviso {
+  background: #3a2a0a;
+  border: 1px solid var(--alerta);
+  color: #fde68a;
+  border-radius: 10px;
+  padding: 10px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.dicas { margin: 6px 0 0; padding-left: 20px; color: var(--sub); font-size: 0.9rem; line-height: 1.45; }
+.dicas b { color: var(--texto); }
+
+.btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--borda);
+  background: var(--card);
+  color: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.btn:disabled { opacity: 0.45; }
+.btn.grande { padding: 16px; font-size: 1.1rem; }
+.btn.primario { background: var(--primario); border-color: var(--primario); }
+.btn.alerta { background: #78350f; border-color: var(--alerta); }
+.btn.perigo { background: var(--perigo); border-color: var(--perigo); }
+.btn.perigo-leve { color: var(--perigo); }
+.btn.gravando { animation: pulsar 1s infinite; background: var(--perigo); border-color: var(--perigo); }
+
+@keyframes pulsar { 50% { opacity: 0.65; } }
+
+.link {
+  background: none;
+  border: none;
+  color: var(--sub);
+  text-decoration: underline;
+  font-size: 0.85rem;
+  padding: 4px;
+}
+
+.check { display: flex; gap: 8px; align-items: center; color: var(--sub); font-size: 0.95rem; }
+.check input { width: 20px; height: 20px; }
+
+/* Vigiar */
+.estado { text-align: center; }
+.estado-texto { font-size: 1.6rem; font-weight: 700; }
+.estado.lambendo { border-color: var(--perigo); background: #3b1212; }
+.estado.vigiando { border-color: var(--ok); }
+
+.numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.numeros div {
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 10px;
+  text-align: center;
+}
+.numeros strong { display: block; font-size: 1.4rem; }
+.numeros span { color: var(--sub); font-size: 0.8rem; }
+
+/* Treinar */
+.treino { display: flex; flex-direction: column; gap: 12px; }
+.classe-info { display: flex; justify-content: space-between; align-items: center; color: var(--sub); padding: 4px 4px 0; }
+
+/* Histórico */
+.lista { display: flex; flex-direction: column; gap: 8px; }
+.sessao h3 { margin: 0 0 4px; font-size: 1rem; }
+.sessao .linha { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--sub); font-size: 0.9rem; }
+.sessao .tag { color: var(--alerta); font-size: 0.8rem; }
+
+/* Ajustes */
+.campo {
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.campo label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 6px; }
+.campo output { color: var(--primario); }
+.campo input[type="range"] { width: 100%; }
+.campo select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--fundo);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  font-size: 1rem;
+}
+.campo .sub { margin-top: 4px; font-size: 0.8rem; }
+
+/* Modo noite: tela preta (economiza bateria/tela), mas o vídeo continua sendo analisado. */
+.modo-noite {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.modo-noite[hidden] { display: none; }
+.modo-noite p { font-size: 1rem; margin: 0 0 6px; }
+.modo-noite.lambendo p { color: #5a1a1a; }
