@@ -229,6 +229,42 @@ function garantirLoop() {
   ciclo();
 }
 
+let canvasStream = null;
+let ultimoEnvioStream = 0;
+
+function enviarQuadroParaMonitor(probabilidade, lambendo) {
+  const agora = Date.now();
+  // Envia no máximo 2 a 3 quadros por segundo para não pesar na rede Wi-Fi
+  if (agora - ultimoEnvioStream < 350 || !video.videoWidth) return;
+  ultimoEnvioStream = agora;
+
+  if (!canvasStream) {
+    canvasStream = document.createElement('canvas');
+  }
+  canvasStream.width = 320;
+  canvasStream.height = 240;
+  const ctx = canvasStream.getContext('2d');
+  ctx.drawImage(video, 0, 0, 320, 240);
+
+  const imagemB64 = canvasStream.toDataURL('image/jpeg', 0.5);
+  
+  // Envia tanto se estiver rodando via servidor local quanto via GitHub Pages (apontando pro IP do Mac se configurado)
+  const endpoint = window.location.origin.includes('localhost') || window.location.origin.includes('192.168.') 
+    ? '/api/frame' 
+    : 'http://192.168.0.116:8000/api/frame';
+
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      imagem: imagemB64,
+      probabilidade,
+      lambendo,
+      totalAlarmes: estado.sessao ? estado.sessao.alarmes.length : 0
+    })
+  }).catch(() => { /* ignora se o monitor do Mac estiver fechado */ });
+}
+
 async function ciclo() {
   if (!precisaLoop()) {
     estado.loopAtivo = false;
@@ -239,8 +275,14 @@ async function ciclo() {
   try {
     if (cameraOk() && !estado.gravandoClasse) {
       const p = await detector.probabilidadeLambendo(video);
-      if (estado.vigiando) atualizarPainel(estado.vigia.atualizar(p));
-      else atualizarMedidor(p);
+      let r = null;
+      if (estado.vigiando) {
+        r = estado.vigia.atualizar(p);
+        atualizarPainel(r);
+      } else {
+        atualizarMedidor(p);
+      }
+      enviarQuadroParaMonitor(p, r ? r.lambendo : false);
     }
   } catch (e) {
     console.error('Erro na análise:', e);

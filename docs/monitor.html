@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monitor do Thor (2º Monitor)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0b0d11;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background: #161a23;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #283040;
+    }
+    .titulo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+    .status-badge {
+      font-size: 0.8rem;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: #2a3142;
+      color: #94a3b8;
+    }
+    .status-badge.online { background: #064e3b; color: #34d399; }
+    .status-badge.lambendo { background: #7f1d1d; color: #f87171; animation: pulsar 1s infinite; }
+    
+    @keyframes pulsar { 50% { opacity: 0.6; } }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: #000;
+    }
+
+    #stream-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .overlay-alerta {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(220, 38, 38, 0.9);
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 1.2rem;
+      display: none;
+      box-shadow: 0 4px 20px rgba(220, 38, 38, 0.5);
+    }
+
+    .esperando {
+      color: #64748b;
+      text-align: center;
+      font-size: 1.1rem;
+    }
+    .esperando p { margin-top: 8px; font-size: 0.85rem; color: #475569; }
+
+    footer {
+      background: #161a23;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      border-top: 1px solid #283040;
+    }
+    .info-box span { font-weight: 600; color: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="titulo">🐶 Monitor de Vigilância do Thor</div>
+    <div id="status-conexao" class="status-badge">Aguardando câmera do celular...</div>
+  </header>
+
+  <main>
+    <div id="esperando-msg" class="esperando">
+      <div style="font-size: 2.5rem; margin-bottom: 8px;">📡</div>
+      Conecte o iPhone na mesma rede Wi-Fi<br>e inicie a transmissão no app
+      <p>Os quadros ao vivo do Thor aparecerão aqui automaticamente</p>
+    </div>
+    <img id="stream-img" style="display: none;" alt="Câmera do Thor">
+    <div id="alerta-lambida" class="overlay-alerta">⚠️ THOR ESTÁ LAMBENDO!</div>
+  </main>
+
+  <footer>
+    <div class="info-box">Status da IA: <span id="info-ia">Aguardando</span></div>
+    <div class="info-box">Probabilidade: <span id="info-prob">0%</span></div>
+    <div class="info-box">Total Alarmes Hoje: <span id="info-alarmes">0</span></div>
+  </footer>
+
+  <script>
+    const img = document.getElementById('stream-img');
+    const msg = document.getElementById('esperando-msg');
+    const badge = document.getElementById('status-conexao');
+    const alerta = document.getElementById('alerta-lambida');
+    const infoIA = document.getElementById('info-ia');
+    const infoProb = document.getElementById('info-prob');
+    const infoAlarmes = document.getElementById('info-alarmes');
+
+    let ultimoFrame = 0;
+
+    async function checarFrame() {
+      try {
+        const resp = await fetch('/api/status?t=' + Date.now());
+        if (resp.ok) {
+          const dados = await resp.json();
+          if (dados.online) {
+            badge.textContent = dados.lambendo ? '🚨 LAMBENDO AGORA' : '🟢 Conectado ao Vivo';
+            badge.className = 'status-badge ' + (dados.lambendo ? 'lambendo' : 'online');
+            
+            alerta.style.display = dados.lambendo ? 'block' : 'none';
+            infoIA.textContent = dados.lambendo ? 'Lambendo' : 'Normal / Dormindo';
+            infoProb.textContent = Math.round((dados.probabilidade || 0) * 100) + '%';
+            infoAlarmes.textContent = dados.totalAlarmes || 0;
+
+            if (dados.frameTimestamp && dados.frameTimestamp !== ultimoFrame) {
+              ultimoFrame = dados.frameTimestamp;
+              img.src = '/api/frame?t=' + ultimoFrame;
+              img.style.display = 'block';
+              msg.style.display = 'none';
+            }
+          } else {
+            badge.textContent = '⚪ Celular Offline';
+            badge.className = 'status-badge';
+          }
+        }
+      } catch (e) {
+        badge.textContent = '🔴 Servidor desconectado';
+        badge.className = 'status-badge';
+      }
+      setTimeout(checarFrame, 300);
+    }
+
+    checarFrame();
+  </script>
+</body>
+</html>
