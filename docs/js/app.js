@@ -414,17 +414,40 @@ async function gravarVoz() {
   try {
     microfone = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
-    status.textContent = `Não consegui acessar o microfone (${e.name}).`;
+    status.textContent = `Erro no microfone (${e.name || e.message}): Verifique as permissões de microfone do navegador.`;
     return;
   }
 
-  const tipo = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm']
-    .find((t) => MediaRecorder.isTypeSupported?.(t));
-  const gravador = new MediaRecorder(microfone, tipo ? { mimeType: tipo } : undefined);
+  // Descobre formatos compatíveis com o navegador (iOS Safari prefere audio/mp4, Android prefere webm)
+  const formatosCandidatos = [
+    'audio/mp4',
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg',
+    'audio/wav'
+  ];
+  let tipoSuportado = '';
+  if (typeof MediaRecorder.isTypeSupported === 'function') {
+    tipoSuportado = formatosCandidatos.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+  }
+
+  let gravador;
+  try {
+    gravador = tipoSuportado ? new MediaRecorder(microfone, { mimeType: tipoSuportado }) : new MediaRecorder(microfone);
+  } catch (errGravador) {
+    try {
+      gravador = new MediaRecorder(microfone);
+    } catch (e2) {
+      status.textContent = `Erro ao iniciar gravador: ${e2.message}`;
+      microfone.getTracks().forEach((t) => t.stop());
+      return;
+    }
+  }
+
   const pedacos = [];
   let limite = null;
 
-  gravador.ondataavailable = (e) => { if (e.data.size) pedacos.push(e.data); };
+  gravador.ondataavailable = (e) => { if (e.data && e.data.size > 0) pedacos.push(e.data); };
   gravador.onstop = async () => {
     clearTimeout(limite);
     microfone.getTracks().forEach((t) => t.stop());
@@ -432,18 +455,25 @@ async function gravarVoz() {
     botao.classList.remove('gravando');
     botao.textContent = '🎙️ Gravar de novo';
 
-    const blob = new Blob(pedacos, { type: gravador.mimeType || tipo || 'audio/webm' });
-    const dados = await blob.arrayBuffer();
     try {
+      const mimeFinal = gravador.mimeType || tipoSuportado || 'audio/mp4';
+      const blob = new Blob(pedacos, { type: mimeFinal });
+      const dados = await blob.arrayBuffer();
       await alarme.definirVoz(dados);
-      await db.salvar('voz', { dados, tipo: blob.type, gravadaEm: iso() });
-      atualizarBotoesVoz('✅ Voz salva! Toque em “Ouvir” para conferir.');
-    } catch (_) {
-      status.textContent = 'Não consegui usar essa gravação. Tente de novo.';
+      await db.salvar('voz', { dados, tipo: mimeFinal, gravadaEm: iso() });
+      atualizarBotoesVoz('✅ Voz salva com sucesso! Toque em “Ouvir” para testar.');
+    } catch (errDecodificacao) {
+      console.error(errDecodificacao);
+      status.textContent = `Erro ao salvar áudio: ${errDecodificacao.message || 'formato incompatível'}. Tente gravar novamente.`;
     }
   };
 
-  gravador.start();
+  try {
+    // Grava emitindo pedaços a cada 200ms para compatibilidade máxima
+    gravador.start(200);
+  } catch (_) {
+    gravador.start();
+  }
   estado.gravadorVoz = gravador;
   botao.classList.add('gravando');
   botao.textContent = '⏹ Parar gravação (máx. 5 s)';
