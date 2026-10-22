@@ -390,7 +390,7 @@ async function iniciarVigilia() {
   mostrarAviso(aviso, '');
 
   if (!detector.pronto()) {
-    mostrarAviso(aviso, `Treine primeiro: pelo menos ${MIN_EXEMPLOS} exemplos de “lambendo” e de “normal”.`);
+    mostrarAviso(aviso, `Treine primeiro: grave pelo menos ${MIN_EXEMPLOS} exemplos de “normal” na aba Treinar.`);
     trocarAba('treinar');
     return;
   }
@@ -790,14 +790,15 @@ function atualizarContagens() {
   const c = detector.contagem();
   $('#cont-lambendo').textContent = c[CLASSES.LAMBENDO];
   $('#cont-normal').textContent = c[CLASSES.NORMAL];
-  const faltam = [CLASSES.LAMBENDO, CLASSES.NORMAL]
-    .filter((k) => c[k] < MIN_EXEMPLOS)
-    .map((k) => `${MIN_EXEMPLOS - c[k]} de “${k}”`);
   if (!estado.gravandoClasse && estado.modeloCarregado) {
     $('#status-treino').hidden = false;
-    $('#status-treino').textContent = faltam.length
-      ? `Faltam pelo menos ${faltam.join(' e ')}.`
-      : '✅ Treino suficiente para começar. Mais exemplos = mais precisão.';
+    if (c[CLASSES.NORMAL] < MIN_EXEMPLOS) {
+      $('#status-treino').textContent = `Grave pelo menos ${MIN_EXEMPLOS - c[CLASSES.NORMAL]} exemplos de “normal” para começar.`;
+    } else if (c[CLASSES.LAMBENDO] === 0) {
+      $('#status-treino').textContent = '✅ Modo Detecção de Mudança ativo (treinado só com “normal”). Quando ele fizer algo diferente, o app detecta!';
+    } else {
+      $('#status-treino').textContent = '✅ Treino completo (“normal” + “lambendo”). Mais exemplos = mais precisão.';
+    }
   }
 }
 

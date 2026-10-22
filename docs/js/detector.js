@@ -42,11 +42,15 @@ export class Detector {
     };
   }
 
-  /** Tem exemplos suficientes das duas classes? */
+  /**
+   * Pronto para vigiar:
+   * - Ou tem >= 20 exemplos de ambas as classes (modo supervisionado clássico)
+   * - Ou tem >= 20 exemplos só de "normal" (modo detecção de anomalia: qualquer postura muito diferente do normal acusa lambida!)
+   */
   pronto() {
     if (!this.carregado) return false;
     const c = this.contagem();
-    return c[CLASSES.LAMBENDO] >= MIN_EXEMPLOS && c[CLASSES.NORMAL] >= MIN_EXEMPLOS;
+    return c[CLASSES.NORMAL] >= MIN_EXEMPLOS;
   }
 
   /** Adiciona o quadro atual do vídeo como exemplo da classe. Retorna false se atingiu o limite. */
@@ -58,12 +62,39 @@ export class Detector {
     return true;
   }
 
-  /** Probabilidade (0–1) de o quadro atual ser "lambendo". */
+  /**
+   * Probabilidade (0–1) de o quadro atual ser "lambendo".
+   * Se só houver exemplos de "normal" gravados, calcula a distância de cosseno para os exemplos normais
+   * (quanto mais diferente da postura normal de descanso, maior a probabilidade!).
+   */
   async probabilidadeLambendo(video) {
+    const c = this.contagem();
     const embedding = this._embedding(video);
     try {
-      const resultado = await this.classificador.predictClass(embedding, K);
-      return resultado.confidences[CLASSES.LAMBENDO] ?? 0;
+      // Caso 1: Tem exemplos de "lambendo" e de "normal" -> KNN tradicional
+      if (c[CLASSES.LAMBENDO] > 0 && c[CLASSES.NORMAL] > 0) {
+        const resultado = await this.classificador.predictClass(embedding, K);
+        return resultado.confidences[CLASSES.LAMBENDO] ?? 0;
+      }
+
+      // Caso 2: Só tem exemplos de "normal" -> Detecção de Anomalia por similaridade de cosseno
+      const dataset = this.classificador.getClassifierDataset();
+      const normais = dataset[CLASSES.NORMAL];
+      if (!normais) return 0;
+
+      return tf.tidy(() => {
+        const embFlat = embedding.reshape([1, -1]);
+        const embNorm = tf.div(embFlat, tf.norm(embFlat, 'euclidean', 1, true));
+        const normaisNorm = tf.div(normais, tf.norm(normais, 'euclidean', 1, true));
+        // Similaridades com todos os quadros normais salvos (-1 a 1)
+        const similaridades = tf.matMul(embNorm, normaisNorm, false, true).squeeze();
+        // Pega a maior similaridade com qualquer postura normal conhecida
+        const maxSim = similaridades.rank === 0 ? similaridades.dataSync()[0] : tf.max(similaridades).dataSync()[0];
+        // Normalmente quadros parecidos têm similaridade >= 0.82.
+        // Quando ele muda de postura (ex: curva para lamber), a similaridade cai (< 0.72).
+        const desvio = Math.max(0, (0.88 - maxSim) / 0.22);
+        return Math.min(1, desvio);
+      });
     } finally {
       embedding.dispose();
     }
