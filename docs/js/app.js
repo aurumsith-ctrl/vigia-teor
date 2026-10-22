@@ -111,6 +111,11 @@ async function ligarCamera() {
     estado.stream.getVideoTracks()[0].addEventListener('ended', () => {
       $('#camera-aviso').hidden = false;
     });
+    iniciarTransmissorWebRTC();
+    // Se já houver um monitor conectado aguardando vídeo, liga pra ele imediatamente
+    for (const conn of conexoesMonitor) {
+      if (conn.open && conn.peer) peerCelular?.call(conn.peer, estado.stream);
+    }
     garantirLoop();
     return true;
   } catch (e) {
@@ -217,10 +222,10 @@ async function limparClasse(classe) {
   await salvarTreino();
 }
 
-// ---------------------------------------------------------------- análise contínua
+// ---------------------------------------------------------------- análise contínua e transmissão
 
 function precisaLoop() {
-  return (estado.vigiando || estado.previa) && detector.pronto();
+  return cameraOk();
 }
 
 function garantirLoop() {
@@ -229,15 +234,78 @@ function garantirLoop() {
   ciclo();
 }
 
+// --- WebRTC P2P (Funciona mesmo em HTTPS sem bloqueio de Mixed Content) ---
+const PEER_ID_CELULAR = 'vigia-thor-cam-eduardo-9921';
+let peerCelular = null;
+let conexoesMonitor = [];
+
+function atualizarPillRemoto(texto, classe = '') {
+  const el = $('#status-remoto');
+  if (!el) return;
+  el.textContent = texto;
+  el.className = 'pill ' + classe;
+}
+
+function iniciarTransmissorWebRTC() {
+  if (typeof Peer === 'undefined' || peerCelular) return;
+  try {
+    peerCelular = new Peer(PEER_ID_CELULAR);
+
+    peerCelular.on('open', () => {
+      atualizarPillRemoto('📺 Mac: Pronto', '');
+    });
+
+    peerCelular.on('connection', (conn) => {
+      conexoesMonitor.push(conn);
+      atualizarPillRemoto('📺 Mac: Conectado', 'ok');
+
+      conn.on('data', (msg) => {
+        if (msg && msg.acao === 'chamar-monitor' && msg.monitorId && estado.stream) {
+          peerCelular.call(msg.monitorId, estado.stream);
+        }
+      });
+
+      conn.on('close', () => {
+        conexoesMonitor = conexoesMonitor.filter((c) => c !== conn);
+        if (conexoesMonitor.length === 0) atualizarPillRemoto('📺 Mac: Pronto', '');
+      });
+    });
+
+    peerCelular.on('error', (err) => {
+      if (err.type === 'unavailable-id') {
+        // Outra aba já está usando o ID; tenta reconectar depois
+        setTimeout(() => { peerCelular = null; iniciarTransmissorWebRTC(); }, 5000);
+      }
+    });
+  } catch (e) {
+    console.warn('Erro ao iniciar PeerJS:', e);
+  }
+}
+
 let canvasStream = null;
 let ultimoEnvioStream = 0;
 
 function enviarQuadroParaMonitor(probabilidade, lambendo) {
   const agora = Date.now();
-  // Envia no máximo 2 a 3 quadros por segundo para não pesar na rede Wi-Fi
   if (agora - ultimoEnvioStream < 350 || !video.videoWidth) return;
   ultimoEnvioStream = agora;
 
+  const totalAlarmes = estado.sessao ? estado.sessao.alarmes.length : 0;
+
+  // 1) Envia telemetria via WebRTC para todos os monitores abertos
+  for (const conn of conexoesMonitor) {
+    if (conn.open) {
+      conn.send({
+        tipo: 'telemetria',
+        probabilidade,
+        lambendo,
+        vigiando: estado.vigiando,
+        totalAlarmes
+      });
+    }
+  }
+
+  // 2) Envia quadro JPEG para o servidor Python local (192.168.0.116:8000)
   if (!canvasStream) {
     canvasStream = document.createElement('canvas');
   }
@@ -245,10 +313,8 @@ function enviarQuadroParaMonitor(probabilidade, lambendo) {
   canvasStream.height = 240;
   const ctx = canvasStream.getContext('2d');
   ctx.drawImage(video, 0, 0, 320, 240);
-
   const imagemB64 = canvasStream.toDataURL('image/jpeg', 0.5);
-  
-  // Envia tanto se estiver rodando via servidor local quanto via GitHub Pages (apontando pro IP do Mac se configurado)
+
   const endpoint = window.location.origin.includes('localhost') || window.location.origin.includes('192.168.') 
     ? '/api/frame' 
     : 'http://192.168.0.116:8000/api/frame';
@@ -260,9 +326,12 @@ function enviarQuadroParaMonitor(probabilidade, lambendo) {
       imagem: imagemB64,
       probabilidade,
       lambendo,
-      totalAlarmes: estado.sessao ? estado.sessao.alarmes.length : 0
+      vigiando: estado.vigiando,
+      totalAlarmes
     })
-  }).catch(() => { /* ignora se o monitor do Mac estiver fechado */ });
+  }).then((r) => {
+    if (r.ok && conexoesMonitor.length === 0) atualizarPillRemoto('📺 Mac: Online', 'ok');
+  }).catch(() => {});
 }
 
 async function ciclo() {
@@ -273,16 +342,23 @@ async function ciclo() {
   }
   const t0 = performance.now();
   try {
+    let p = 0;
+    let lambendo = false;
+
     if (cameraOk() && !estado.gravandoClasse) {
-      const p = await detector.probabilidadeLambendo(video);
-      let r = null;
-      if (estado.vigiando) {
-        r = estado.vigia.atualizar(p);
-        atualizarPainel(r);
-      } else {
-        atualizarMedidor(p);
+      const podeAnalisarIA = (estado.vigiando || estado.previa) && detector.pronto();
+      if (podeAnalisarIA) {
+        p = await detector.probabilidadeLambendo(video);
+        if (estado.vigiando) {
+          const r = estado.vigia.atualizar(p);
+          lambendo = r.lambendo;
+          atualizarPainel(r);
+        } else {
+          atualizarMedidor(p);
+        }
       }
-      enviarQuadroParaMonitor(p, r ? r.lambendo : false);
+      // Transmite SEMPRE que a câmera estiver ligada, mesmo sem treino!
+      enviarQuadroParaMonitor(p, lambendo);
     }
   } catch (e) {
     console.error('Erro na análise:', e);
@@ -824,6 +900,7 @@ function ligarEventos() {
 
 async function iniciar() {
   ligarEventos();
+  iniciarTransmissorWebRTC();
   const ajustesSalvos = await db.carregar('ajustes');
   estado.ajustes = { ...AJUSTES_PADRAO, ...(ajustesSalvos || {}) };
   renderAjustes();

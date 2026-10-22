@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitor do Thor (2º Monitor)</title>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -25,11 +26,12 @@
     }
     .titulo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
     .status-badge {
-      font-size: 0.8rem;
-      padding: 4px 12px;
+      font-size: 0.85rem;
+      padding: 5px 14px;
       border-radius: 999px;
       background: #2a3142;
       color: #94a3b8;
+      font-weight: 600;
     }
     .status-badge.online { background: #064e3b; color: #34d399; }
     .status-badge.lambendo { background: #7f1d1d; color: #f87171; animation: pulsar 1s infinite; }
@@ -46,11 +48,11 @@
       background: #000;
     }
 
-    #stream-img {
-      max-width: 100%;
-      max-height: 100%;
+    #remote-video, #stream-img {
+      width: 100%;
+      height: 100%;
       object-fit: contain;
-      display: block;
+      display: none;
     }
 
     .overlay-alerta {
@@ -58,102 +60,199 @@
       top: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(220, 38, 38, 0.9);
+      background: rgba(220, 38, 38, 0.92);
       color: #fff;
-      padding: 10px 24px;
+      padding: 12px 28px;
       border-radius: 12px;
       font-weight: 700;
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       display: none;
       box-shadow: 0 4px 20px rgba(220, 38, 38, 0.5);
+      z-index: 10;
     }
 
     .esperando {
-      color: #64748b;
+      color: #94a3b8;
       text-align: center;
       font-size: 1.1rem;
+      max-width: 480px;
+      padding: 24px;
+      background: #161a23;
+      border: 1px solid #283040;
+      border-radius: 16px;
     }
-    .esperando p { margin-top: 8px; font-size: 0.85rem; color: #475569; }
+    .esperando p { margin-top: 10px; font-size: 0.9rem; color: #64748b; line-height: 1.4; }
+    .log-status { margin-top: 14px; font-family: monospace; font-size: 0.8rem; color: #3b82f6; }
 
     footer {
       background: #161a23;
-      padding: 10px 20px;
+      padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       color: #94a3b8;
       border-top: 1px solid #283040;
     }
-    .info-box span { font-weight: 600; color: #f1f5f9; }
+    .info-box span { font-weight: 700; color: #f1f5f9; }
   </style>
 </head>
 <body>
   <header>
-    <div class="titulo">🐶 Monitor de Vigilância do Thor</div>
-    <div id="status-conexao" class="status-badge">Aguardando câmera do celular...</div>
+    <div class="titulo">🐶 Monitor ao Vivo do Thor</div>
+    <div id="status-conexao" class="status-badge">Iniciando receptor...</div>
   </header>
 
   <main>
     <div id="esperando-msg" class="esperando">
-      <div style="font-size: 2.5rem; margin-bottom: 8px;">📡</div>
-      Conecte o iPhone na mesma rede Wi-Fi<br>e inicie a transmissão no app
-      <p>Os quadros ao vivo do Thor aparecerão aqui automaticamente</p>
+      <div style="font-size: 2.8rem; margin-bottom: 10px;">📡</div>
+      <strong>Aguardando câmera do iPhone...</strong>
+      <p>Basta abrir o app no celular e tocar em <b>"📷 Ligar câmera"</b>.<br>A imagem vai entrar aqui automaticamente (mesmo antes de treinar ou iniciar a vigília).</p>
+      <div id="log-detalhe" class="log-status">Conectando canal WebRTC...</div>
     </div>
-    <img id="stream-img" style="display: none;" alt="Câmera do Thor">
+
+    <video id="remote-video" autoplay playsinline muted></video>
+    <img id="stream-img" alt="Câmera do Thor">
     <div id="alerta-lambida" class="overlay-alerta">⚠️ THOR ESTÁ LAMBENDO!</div>
   </main>
 
   <footer>
-    <div class="info-box">Status da IA: <span id="info-ia">Aguardando</span></div>
+    <div class="info-box">Modo: <span id="info-modo">Aguardando</span></div>
+    <div class="info-box">Status IA: <span id="info-ia">Câmera Ao Vivo</span></div>
     <div class="info-box">Probabilidade: <span id="info-prob">0%</span></div>
-    <div class="info-box">Total Alarmes Hoje: <span id="info-alarmes">0</span></div>
+    <div class="info-box">Total Alarmes: <span id="info-alarmes">0</span></div>
   </footer>
 
   <script>
-    const img = document.getElementById('stream-img');
-    const msg = document.getElementById('esperando-msg');
+    const videoEl = document.getElementById('remote-video');
+    const imgEl = document.getElementById('stream-img');
+    const msgEl = document.getElementById('esperando-msg');
+    const logEl = document.getElementById('log-detalhe');
     const badge = document.getElementById('status-conexao');
     const alerta = document.getElementById('alerta-lambida');
+    const infoModo = document.getElementById('info-modo');
     const infoIA = document.getElementById('info-ia');
     const infoProb = document.getElementById('info-prob');
     const infoAlarmes = document.getElementById('info-alarmes');
 
-    let ultimoFrame = 0;
+    const PEER_ID_CELULAR = 'vigia-thor-cam-eduardo-9921';
+    let webrtcAtivo = false;
+    let peer = null;
+    let tentativaTimer = null;
 
-    async function checarFrame() {
+    function atualizarStatusUI(dados) {
+      const lambendo = Boolean(dados.lambendo);
+      badge.textContent = lambendo ? '🚨 LAMBENDO AGORA!' : '🟢 Conectado ao Vivo';
+      badge.className = 'status-badge ' + (lambendo ? 'lambendo' : 'online');
+      alerta.style.display = lambendo ? 'block' : 'none';
+      infoIA.textContent = dados.vigiando ? (lambendo ? 'Lambendo!' : 'Vigiando (Tranquilo)') : 'Só Câmera (Sem Vigília)';
+      infoProb.textContent = Math.round((dados.probabilidade || 0) * 100) + '%';
+      infoAlarmes.textContent = dados.totalAlarmes || 0;
+    }
+
+    // =========================================================================
+    // CANAL 1: WebRTC Direto (Funciona em HTTPS no GitHub Pages e localhost!)
+    // =========================================================================
+    function iniciarWebRTC() {
+      if (typeof Peer === 'undefined') return;
+      peer = new Peer();
+
+      peer.on('open', () => {
+        logEl.textContent = 'Canal WebRTC pronto. Procurando iPhone (' + PEER_ID_CELULAR + ')...';
+        conectarAoCelular();
+      });
+
+      peer.on('error', () => {
+        setTimeout(conectarAoCelular, 3000);
+      });
+    }
+
+    function conectarAoCelular() {
+      if (!peer || peer.disconnected || webrtcAtivo) return;
+      clearTimeout(tentativaTimer);
+
+      // Conecta canal de dados para receber telemetria e pede chamada de vídeo
+      const conn = peer.connect(PEER_ID_CELULAR);
+      conn.on('open', () => {
+        logEl.textContent = 'iPhone encontrado! Solicitando vídeo ao vivo...';
+        conn.send({ acao: 'chamar-monitor', monitorId: peer.id });
+      });
+
+      conn.on('data', (dados) => {
+        if (dados && dados.tipo === 'telemetria') {
+          atualizarStatusUI(dados);
+        }
+        if (dados && dados.tipo === 'frame' && !webrtcAtivo) {
+          imgEl.src = dados.imagem;
+          imgEl.style.display = 'block';
+          msgEl.style.display = 'none';
+          infoModo.textContent = 'WebRTC Frame';
+          atualizarStatusUI(dados);
+        }
+      });
+
+      tentativaTimer = setTimeout(() => {
+        if (!webrtcAtivo) conectarAoCelular();
+      }, 4000);
+    }
+
+    // Quando o iPhone ligar de volta enviando o MediaStream de vídeo
+    function configurarRecebimentoVideo() {
+      if (!peer) return;
+      peer.on('call', (call) => {
+        call.answer();
+        call.on('stream', (remoteStream) => {
+          webrtcAtivo = true;
+          videoEl.srcObject = remoteStream;
+          videoEl.style.display = 'block';
+          imgEl.style.display = 'none';
+          msgEl.style.display = 'none';
+          infoModo.textContent = 'WebRTC HD (30 FPS)';
+          badge.textContent = '🟢 Conectado ao Vivo';
+          badge.className = 'status-badge online';
+          videoEl.play().catch(() => {});
+        });
+        call.on('close', () => {
+          webrtcAtivo = false;
+          videoEl.style.display = 'none';
+          conectarAoCelular();
+        });
+      });
+    }
+
+    iniciarWebRTC();
+    configurarRecebimentoVideo();
+
+    // =========================================================================
+    // CANAL 2: Fallback via Servidor Python Local (se estiver em http://localhost:8000)
+    // =========================================================================
+    let ultimoFrameLocal = 0;
+    async function checarServidorLocal() {
+      if (webrtcAtivo) {
+        setTimeout(checarServidorLocal, 2000);
+        return;
+      }
       try {
-        const resp = await fetch('/api/status?t=' + Date.now());
+        const base = window.location.protocol === 'http:' ? '' : 'http://localhost:8000';
+        const resp = await fetch(base + '/api/status?t=' + Date.now());
         if (resp.ok) {
           const dados = await resp.json();
           if (dados.online) {
-            badge.textContent = dados.lambendo ? '🚨 LAMBENDO AGORA' : '🟢 Conectado ao Vivo';
-            badge.className = 'status-badge ' + (dados.lambendo ? 'lambendo' : 'online');
-            
-            alerta.style.display = dados.lambendo ? 'block' : 'none';
-            infoIA.textContent = dados.lambendo ? 'Lambendo' : 'Normal / Dormindo';
-            infoProb.textContent = Math.round((dados.probabilidade || 0) * 100) + '%';
-            infoAlarmes.textContent = dados.totalAlarmes || 0;
-
-            if (dados.frameTimestamp && dados.frameTimestamp !== ultimoFrame) {
-              ultimoFrame = dados.frameTimestamp;
-              img.src = '/api/frame?t=' + ultimoFrame;
-              img.style.display = 'block';
-              msg.style.display = 'none';
+            infoModo.textContent = 'Rede Wi-Fi Local';
+            atualizarStatusUI(dados);
+            if (dados.frameTimestamp && dados.frameTimestamp !== ultimoFrameLocal) {
+              ultimoFrameLocal = dados.frameTimestamp;
+              imgEl.src = base + '/api/frame?t=' + ultimoFrameLocal;
+              imgEl.style.display = 'block';
+              msgEl.style.display = 'none';
             }
-          } else {
-            badge.textContent = '⚪ Celular Offline';
-            badge.className = 'status-badge';
           }
         }
-      } catch (e) {
-        badge.textContent = '🔴 Servidor desconectado';
-        badge.className = 'status-badge';
-      }
-      setTimeout(checarFrame, 300);
+      } catch (_) { /* Servidor local não acessível via HTTPS ou desligado */ }
+      setTimeout(checarServidorLocal, 500);
     }
 
-    checarFrame();
+    checarServidorLocal();
   </script>
 </body>
 </html>

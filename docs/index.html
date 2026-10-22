@@ -12,7 +12,10 @@
 <body>
   <header class="topo">
     <h1>🐶 Vigia do Thor</h1>
-    <span id="status-modelo" class="pill">Carregando IA…</span>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <span id="status-remoto" class="pill" title="Conexão com o 2º Monitor do Mac">📺 Mac: ...</span>
+      <span id="status-modelo" class="pill">Carregando IA…</span>
+    </div>
   </header>
 
   <div class="camera">
@@ -158,6 +161,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.6/dist/knn-classifier.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
