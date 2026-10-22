@@ -103,13 +103,29 @@
     <!-- VOZ -->
     <section id="aba-voz" class="aba">
       <div class="card">
-        <h2>Sua voz no alarme</h2>
-        <p class="sub">Grave você chamando, do jeito que ele obedece. Exemplo: <b>“Thor! Não!”</b> (até 5 segundos).</p>
+        <h2>Áudios de Bronca do Thor</h2>
+        <p class="sub">Os 3 áudios gravados por você já vêm <b>embutidos e turbinados (alto volume)</b>. O app fala um de cada vez a cada alarme para o Thor não acostumar!</p>
       </div>
-      <button id="btn-gravar-voz" class="btn grande primario">🎙️ Gravar minha voz</button>
-      <button id="btn-ouvir-voz" class="btn">▶️ Ouvir</button>
-      <button id="btn-apagar-voz" class="btn" disabled>🗑 Apagar gravação</button>
-      <p id="status-voz" class="sub">Sem gravação: o alarme usa bipes + voz sintetizada.</p>
+
+      <div class="card">
+        <label style="font-weight:600; display:block; margin-bottom:8px;">Testar Áudios Embutidos (Volume Máximo):</label>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+          <button id="btn-teste-para" class="btn" style="padding:10px 4px; font-size:0.9rem;">🗣️ "Pára Thor!"</button>
+          <button id="btn-teste-chega" class="btn" style="padding:10px 4px; font-size:0.9rem;">🗣️ "Chega Thor!"</button>
+          <button id="btn-teste-shh" class="btn" style="padding:10px 4px; font-size:0.9rem;">🗣️ "Shhh Thor!"</button>
+        </div>
+      </div>
+
+      <details class="card" style="margin-top:6px;">
+        <summary>Gravar nova voz extra (opcional)</summary>
+        <p class="sub" style="margin:10px 0;">Se quiser gravar mais um chamado pelo celular além desses 3:</p>
+        <button id="btn-gravar-voz" class="btn grande primario">🎙️ Gravar voz extra</button>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button id="btn-ouvir-voz" class="btn" style="flex:1;">▶️ Ouvir voz extra</button>
+          <button id="btn-apagar-voz" class="btn perigo-leve" disabled style="flex:1;">🗑 Apagar extra</button>
+        </div>
+        <p id="status-voz" class="sub" style="margin-top:8px;"></p>
+      </details>
     </section>
 
     <!-- HISTÓRICO -->

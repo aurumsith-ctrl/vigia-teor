@@ -481,19 +481,18 @@ async function gravarVoz() {
   limite = setTimeout(() => { if (gravador.state === 'recording') gravador.stop(); }, DURACAO_MAX_VOZ_MS);
 }
 
-async function ouvirVoz() {
+async function ouvirVoz(indice = null) {
   const liberado = alarme.desbloquear();
   try { await liberado; } catch (_) { /* tenta tocar mesmo assim */ }
-  alarme.tocar(1);
+  alarme.tocar(1, indice);
 }
 
 async function apagarVoz() {
-  if (!confirm('Apagar sua gravação?')) return;
+  if (!confirm('Apagar sua gravação extra?')) return;
   alarme.removerVoz();
   await db.apagar('voz');
   $('#btn-apagar-voz').disabled = true;
-  $('#btn-gravar-voz').textContent = '🎙️ Gravar minha voz';
-  $('#status-voz').textContent = 'Sem gravação: o alarme usa bipes + voz sintetizada.';
+  $('#status-voz').textContent = 'Gravação extra apagada. Os 3 áudios embutidos continuam ativos.';
 }
 
 // ---------------------------------------------------------------- histórico
@@ -738,8 +737,12 @@ function ligarEventos() {
   });
 
   $('#btn-gravar-voz').addEventListener('click', gravarVoz);
-  $('#btn-ouvir-voz').addEventListener('click', ouvirVoz);
+  $('#btn-ouvir-voz').addEventListener('click', () => ouvirVoz());
   $('#btn-apagar-voz').addEventListener('click', apagarVoz);
+
+  $('#btn-teste-para')?.addEventListener('click', () => ouvirVoz(0));
+  $('#btn-teste-chega')?.addEventListener('click', () => ouvirVoz(1));
+  $('#btn-teste-shh')?.addEventListener('click', () => ouvirVoz(2));
 
   $('#btn-exportar').addEventListener('click', exportarHistorico);
   $('#btn-apagar-historico').addEventListener('click', apagarHistorico);
@@ -784,6 +787,7 @@ async function iniciar() {
   renderAjustes();
   aplicarAjustes();
   atualizarStatus();
+  await alarme.carregarAudiosPadrao();
   carregarVoz();
   renderHistorico();
   carregarModelo();
